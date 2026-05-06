@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Survey & BI Studio</title>
+    
+    <!-- スタイルシートの読み込み -->
+    <link rel="stylesheet" href="css/layout.css">
+</head>
+<body>
+
+    <div id="app">
+        <!-- メインヘッダー（ナビゲーション） -->
+        <header class="main-header">
+            <div class="logo">
+                <h1>Survey & BI Studio</h1>
+            </div>
+            <nav class="nav-tabs">
+                <button class="nav-btn active" data-view="dashboard">ダッシュボード</button>
+                <button class="nav-btn" data-view="editor">設問エディタ</button>
+            </nav>
+            <div class="user-actions">
+                <button onclick="import('./src/services/api.js').then(m => m.ApiService.clearState())" class="delete-btn">
+                    データをリセット
+                </button>
+            </div>
+        </header>
+
+        <!-- メインコンテンツ領域 -->
+        <main class="content-area">
+            
+            <!-- 設問エディタ表示エリア -->
+            <div id="editor-view" style="display: none;">
+                <!-- src/components/SurveyEditor.js によって描画されます -->
+            </div>
+
+            <!-- ダッシュボード表示エリア -->
+            <div id="dashboard-view">
+                <!-- src/components/Dashboard.js によって描画されます -->
+            </div>
+
+        </main>
+    </div>
+
+    <!-- アプリケーションの起動（モジュールとして読み込み） -->
+    <script type="module" src="src/main.js"></script>
+</body>
+</html>
