@@ -170,3 +170,17 @@ textarea.question-input {
 .primary-btn { background: var(--accent-color); color: white; border: none; padding: 0.8rem 1.5rem; border-radius: 4px; cursor: pointer; }
 .secondary-btn { background: #6c757d; color: white; border: none; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; }
 .delete-btn { color: var(--danger-color); background: none; border: none; cursor: pointer; }
+
+/* 操作中のウィジェットの強調 */
+.widget-card.is-active-action {
+  z-index: 100;
+  box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+  opacity: 0.8;
+  pointer-events: none; /* ドラッグ中の干渉防止 */
+}
+
+/* 編集モード時のグリッドガイド（任意） */
+.mode-edit .widget-grid {
+  background-image: radial-gradient(#ddd 1px, transparent 1px);
+  background-size: calc(100% / 12) 110px;
+}
