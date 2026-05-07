@@ -1,21 +1,101 @@
-// DEFAULT_STATE に snapshots を追加
+/**
+ * Application State Manager (Professional Edition)
+ */
+
 const DEFAULT_STATE = {
-  // ... 他のプロパティは維持 ...
-  dashboard: {
-    widgets: [],
-    filters: { department: "All", tenure: "All" },
-    snapshots: [] // ← 追加：スナップショットの保存先
+  survey: {
+    title: "Organization Health Check",
+    questions: [
+      { id: "q1", type: "rating", text: "チームの意思疎通は円滑である", category: "Teamwork" },
+      { id: "q2", type: "rating", text: "自分の役割に満足している", category: "Growth" }
+    ]
   },
-  // ...
+  responses: [
+    { id: "r1", q1: 5, q2: 4, department: "Sales", tenure: "3-5y" },
+    { id: "r2", q1: 3, q2: 5, department: "R&D", tenure: "1-3y" }
+  ],
+  dashboard: {
+    widgets: [
+      { id: "w1", type: "bar", title: "部署別スコア", x: "department", y: "q1", aggregation: "avg", layout: { x: 0, y: 0, w: 6, h: 4 } }
+    ],
+    filters: { department: "All", tenure: "All" },
+    snapshots: [] // ← これが重要です！
+  },
+  ui: {
+    currentView: "dashboard",
+    isEditMode: true
+  }
 };
 
-// Stateクラスに以下のメソッドを追加
 class State {
-  // ... 既存メソッド ...
+  constructor() {
+    this.state = JSON.parse(JSON.stringify(DEFAULT_STATE));
+    this.listeners = [];
+  }
 
-  /**
-   * 現在のダッシュボードの状態を保存
-   */
+  hydrate(savedState) {
+    if (savedState) {
+      this.state = {
+        ...this.state,
+        ...savedState,
+        dashboard: { ...this.state.dashboard, ...savedState.dashboard },
+        ui: { ...this.state.ui, ...savedState.ui }
+      };
+      // snapshotsが保存データにない場合の保険
+      if (!this.state.dashboard.snapshots) this.state.dashboard.snapshots = [];
+    }
+    this._notify();
+  }
+
+  getState() { return JSON.parse(JSON.stringify(this.state)); }
+
+  update(path, value) {
+    const keys = path.split('.');
+    let current = this.state;
+    for (let i = 0; i < keys.length - 1; i++) {
+      current = current[keys[i]];
+    }
+    current[keys[keys.length - 1]] = value;
+    this._notify();
+  }
+
+  // --- ウィジェット・レイアウト操作 ---
+  addWidget(type = 'bar') {
+    const newWidget = {
+      id: `w${Date.now()}`,
+      type: type,
+      title: "新規グラフ",
+      x: "department",
+      y: "q1",
+      aggregation: "avg",
+      layout: { x: 0, y: 10, w: 6, h: 4 }
+    };
+    this.state.dashboard.widgets.push(newWidget);
+    this._notify();
+  }
+
+  removeWidget(id) {
+    this.state.dashboard.widgets = this.state.dashboard.widgets.filter(w => w.id !== id);
+    this._notify();
+  }
+
+  updateWidgetLayout(id, newLayout) {
+    const widget = this.state.dashboard.widgets.find(w => w.id === id);
+    if (widget) {
+      widget.layout = { ...widget.layout, ...newLayout };
+      this._notify();
+    }
+  }
+
+  updateWidgetConfig(id, config) {
+    const index = this.state.dashboard.widgets.findIndex(w => w.id === id);
+    if (index !== -1) {
+      this.state.dashboard.widgets[index] = { ...this.state.dashboard.widgets[index], ...config };
+      this._notify();
+    }
+  }
+
+  // --- スナップショット操作 ---
   saveSnapshot(name) {
     if (!name) return;
     const newSnapshot = {
@@ -23,8 +103,6 @@ class State {
       timestamp: new Date().toISOString(),
       widgets: JSON.parse(JSON.stringify(this.state.dashboard.widgets))
     };
-    
-    // 同名のスナップショットがあれば上書き、なければ追加
     const index = this.state.dashboard.snapshots.findIndex(s => s.name === name);
     if (index !== -1) {
       this.state.dashboard.snapshots[index] = newSnapshot;
@@ -34,9 +112,6 @@ class State {
     this._notify();
   }
 
-  /**
-   * スナップショットを適用してダッシュボードを復元
-   */
   applySnapshot(name) {
     const snapshot = this.state.dashboard.snapshots.find(s => s.name === name);
     if (snapshot) {
@@ -45,11 +120,16 @@ class State {
     }
   }
 
-  /**
-   * スナップショットを削除
-   */
-  deleteSnapshot(name) {
-    this.state.dashboard.snapshots = this.state.dashboard.snapshots.filter(s => s.name !== name);
-    this._notify();
+  subscribe(callback) {
+    this.listeners.push(callback);
+    callback(this.getState());
+    return () => { this.listeners = this.listeners.filter(l => l !== callback); };
+  }
+
+  _notify() {
+    const currentState = this.getState();
+    this.listeners.forEach(callback => callback(currentState));
   }
 }
+
+export const store = new State();
