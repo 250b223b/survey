@@ -39,6 +39,9 @@
                 <button onclick="if(confirm('全てのデータをリセットしますか？')) { import('./src/services/api.js').then(m => m.ApiService.clearState()); }" class="delete-btn" style="font-size: 0.8rem; opacity: 0.7;">
                     データをリセット
                 </button>
+<button onclick="import('./src/utils/data-generator.js').then(m => m.DataGenerator.generateResponses(100))" class="secondary-btn" style="background: #27ae60;">
+    テストデータ100件生成
+</button>
             </div>
         </header>
 
