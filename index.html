@@ -5,45 +5,58 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Survey & BI Studio</title>
     
-    <!-- スタイルシートの読み込み -->
     <link rel="stylesheet" href="css/layout.css">
+    <style>
+        /* 一部の動的スタイルを補完（CSSファイルに未反映の場合用）
+           大規模開発では本来 css/layout.css に含めるべき内容です
+        */
+        .nav-btn.active {
+            border-bottom: 3px solid var(--accent-color);
+            color: white;
+        }
+        .content-area {
+            padding: 20px;
+            overflow-y: auto;
+            height: calc(100vh - 60px); /* ヘッダー分を引く */
+        }
+    </style>
 </head>
 <body>
 
     <div id="app">
-        <!-- メインヘッダー（ナビゲーション） -->
         <header class="main-header">
             <div class="logo">
-                <h1>Survey & BI Studio</h1>
+                <h1 style="margin: 0; font-size: 1.5rem;">Survey & BI Studio</h1>
             </div>
+            
             <nav class="nav-tabs">
                 <button class="nav-btn active" data-view="dashboard">ダッシュボード</button>
                 <button class="nav-btn" data-view="editor">設問エディタ</button>
+                <button class="nav-btn" data-view="responder">回答プレビュー</button>
             </nav>
+
             <div class="user-actions">
-                <button onclick="import('./src/services/api.js').then(m => m.ApiService.clearState())" ...>
+                <button onclick="if(confirm('全てのデータをリセットしますか？')) { import('./src/services/api.js').then(m => m.ApiService.clearState()); }" class="delete-btn" style="font-size: 0.8rem; opacity: 0.7;">
                     データをリセット
                 </button>
             </div>
         </header>
 
-        <!-- メインコンテンツ領域 -->
         <main class="content-area">
             
-            <!-- 設問エディタ表示エリア -->
-            <div id="editor-view" style="display: none;">
-                <!-- src/components/SurveyEditor.js によって描画されます -->
+            <div id="dashboard-view">
+                <p style="text-align: center; margin-top: 50px; color: #999;">ダッシュボードを読み込み中...</p>
             </div>
 
-            <!-- ダッシュボード表示エリア -->
-            <div id="dashboard-view">
-                <!-- src/components/Dashboard.js によって描画されます -->
-            </div>
+            <div id="editor-view" style="display: none;">
+                </div>
+
+            <div id="responder-view" style="display: none;">
+                </div>
 
         </main>
     </div>
 
-    <!-- アプリケーションの起動（モジュールとして読み込み） -->
     <script type="module" src="src/main.js"></script>
 </body>
 </html>
