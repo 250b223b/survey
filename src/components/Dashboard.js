@@ -1,32 +1,55 @@
-// Dashboard.js 内の renderWidgetEditor メソッドを以下のように更新
+// render メソッド内のヘッダー部分を拡張
+render(state) {
+  const { dashboard, ui } = state;
+  
+  this.container.innerHTML = `
+    <div class="dashboard-wrapper ${ui.isEditMode ? 'mode-edit' : 'mode-view'}">
+      <header class="dashboard-header" style="background: #fff; padding: 1rem; border-bottom: 2px solid #34495e;">
+        
+        <div class="snapshot-bar" style="display: flex; gap: 10px; margin-bottom: 1rem; align-items: center; background: #f9f9f9; padding: 8px; border-radius: 4px;">
+          <span style="font-size: 0.75rem; font-weight: bold; color: #7f8c8d;">SNAPSHOTS:</span>
+          <select id="snapshot-select" style="font-size: 0.8rem; padding: 4px;">
+            <option value="">-- 保存済みビューを選択 --</option>
+            ${dashboard.snapshots.map(s => `<option value="${s.name}">${s.name}</option>`).join('')}
+          </select>
+          
+          ${ui.isEditMode ? `
+            <input type="text" id="snapshot-name-input" placeholder="ビュー名を入力" style="font-size: 0.8rem; padding: 4px; width: 120px;">
+            <button id="save-snapshot-btn" class="secondary-btn" style="padding: 4px 12px; font-size: 0.8rem;">保存</button>
+          ` : ''}
+        </div>
 
-renderWidgetEditor(widget) {
-  const measures = [
-    { id: 'avg', label: '平均値' },
-    { id: 'median', label: '中央値' },
-    { id: 'sum', label: '合計' },
-    { id: 'count', label: '回答数' },
-    { id: 'stdDev', label: 'バラつき(標準偏差)' },
-    { id: 'topBox', label: '肯定的回答率(%)' }
-  ];
-
-  return `
-    <div class="widget-controls" style="width:100%">
-      <select class="config-select" data-field="aggregation" style="width: 100%; margin-bottom: 5px; background: #fffbe6; font-weight: bold;">
-        ${measures.map(m => `<option value="${m.id}" ${widget.aggregation === m.id ? 'selected' : ''}>${m.label}</option>`).join('')}
-      </select>
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <h2 style="margin:0;">Analytics Dashboard</h2>
+          ${ui.isEditMode ? '<button id="add-widget-btn" class="primary-btn">＋ グラフ追加</button>' : ''}
+        </div>
+      </header>
       
-      <div style="display:flex; gap:5px;">
-        <select class="config-select" data-field="x" style="flex:1">
-            <option value="department" ${widget.x === 'department' ? 'selected' : ''}>部署別</option>
-            <option value="tenure" ${widget.x === 'tenure' ? 'selected' : ''}>年数別</option>
-        </select>
-        <select class="config-select" data-field="y" style="flex:1">
-            ${store.getState().survey.questions.map(q => `
-                <option value="${q.id}" ${widget.y === q.id ? 'selected' : ''}>${q.id}</option>
-            `).join('')}
-        </select>
-      </div>
+      <div class="widget-grid">
+        </div>
     </div>
   `;
+}
+
+// initEventListeners にスナップショット用の処理を追加
+initEventListeners() {
+  this.container.addEventListener('click', (e) => {
+    // スナップショット保存
+    if (e.target.id === 'save-snapshot-btn') {
+      const name = document.getElementById('snapshot-name-input').value;
+      if (name) {
+        store.saveSnapshot(name);
+        document.getElementById('snapshot-name-input').value = '';
+      }
+    }
+  });
+
+  this.container.addEventListener('change', (e) => {
+    // スナップショット切り替え
+    if (e.target.id === 'snapshot-select' && e.target.value) {
+      store.applySnapshot(e.target.value);
+    }
+  });
+  
+  // ... 他のリスナー ...
 }
