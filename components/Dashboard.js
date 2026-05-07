@@ -1,67 +1,39 @@
 import { store } from '../core/state.js';
 import { AnalysisEngine } from '../core/engine.js';
 
-/**
- * Dashboard Component
- * ウィジェットの配置とデータ集計結果の描画を担当[cite: 2]
- */
 export class Dashboard {
   constructor(containerId) {
     this.container = document.getElementById(containerId);
     if (!this.container) return;
-
-    // Stateの変更を購読（データやフィルタが変われば再描画）[cite: 2]
-    store.subscribe((state) => {
-      this.render(state);
-    });
-
+    store.subscribe((state) => this.render(state));
     this.initEventListeners();
   }
 
-  /**
-   * イベントリスナーの初期化
-   */
   initEventListeners() {
     this.container.addEventListener('click', (e) => {
       const widgetId = e.target.closest('.widget-card')?.dataset.id;
-      
-      // ウィジェット追加（ヘッダーボタン）
-      if (e.target.id === 'add-widget-btn') {
-        store.addWidget('bar');
-      }
-
-      if (!widgetId) return;
-
-      // ウィジェット削除
-      if (e.target.classList.contains('delete-widget-btn')) {
-        store.removeWidget(widgetId);
-      }
+      if (e.target.id === 'add-widget-btn') store.addWidget('bar');
+      if (widgetId && e.target.classList.contains('delete-widget-btn')) store.removeWidget(widgetId);
     });
 
     this.container.addEventListener('change', (e) => {
       const widgetId = e.target.closest('.widget-card')?.dataset.id;
       if (!widgetId) return;
-
-      // 軸の変更（Tableau的な次元/指標の切り替え）[cite: 2]
       if (e.target.classList.contains('config-select')) {
-        const field = e.target.dataset.field; // 'x' or 'y'
+        const field = e.target.dataset.field;
         store.updateWidgetConfig(widgetId, { [field]: e.target.value });
       }
     });
   }
 
-  /**
-   * ダッシュボード全体の描画[cite: 2]
-   */
   render(state) {
     const { dashboard, responses, ui } = state;
-    
     this.container.innerHTML = `
       <div class="dashboard-wrapper ${ui.isEditMode ? 'mode-edit' : 'mode-view'}">
-        <header class="dashboard-header">
-          <div class="header-main" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
-            <h2 style="margin: 0;">分析ダッシュボード ${ui.isEditMode ? '<span class="badge" style="font-size: 0.8rem; background: #e67e22; color: white; padding: 2px 8px; border-radius: 10px; margin-left: 10px;">編集モード</span>' : ''}</h2>
-            ${ui.isEditMode ? '<button id="add-widget-btn" class="secondary-btn">+ グラフを追加</button>' : ''}
+        <header class="dashboard-header" style="background: #fff; padding: 1.5rem; border-bottom: 1px solid #eee; margin-bottom: 1rem;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+            <h2 style="margin:0; font-weight: 800; color: #2c3e50;">Organization Analytics</h2>
+            ${ui.isEditMode ? '<button id="add-widget-btn" class="primary-btn">＋ ウィジェット追加</button>' : ''}
           </div>
           ${this.renderFilters(dashboard.filters)}
         </header>
@@ -72,88 +44,142 @@ export class Dashboard {
     `;
   }
 
-  /**
-   * フィルターセクションの描画
-   */
   renderFilters(filters) {
+    // 複数のフィルタ（部署・勤続年数）を並列化
+    const depts = ['All', 'Sales', 'R&D', 'HR', 'Marketing'];
+    const tenures = ['All', '1-3y', '3-5y', '5y+'];
+
     return `
-      <div class="filter-bar" style="background: #eee; padding: 10px; border-radius: 4px; margin-bottom: 1rem;">
-        <label style="font-size: 0.9rem; font-weight: bold;">部署フィルタ: 
+      <div class="filter-group" style="display: flex; gap: 20px; align-items: center;">
+        <label style="font-size: 0.8rem; color: #7f8c8d;">DEPT: 
           <select class="filter-select" onchange="import('../core/state.js').then(m => m.store.update('dashboard.filters.department', this.value))">
-            <option value="All" ${filters.department === 'All' ? 'selected' : ''}>すべて</option>
-            <option value="Sales" ${filters.department === 'Sales' ? 'selected' : ''}>Sales</option>
-            <option value="R&D" ${filters.department === 'R&D' ? 'selected' : ''}>R&D</option>
+            ${depts.map(d => `<option value="${d}" ${filters.department === d ? 'selected' : ''}>${d}</option>`).join('')}
+          </select>
+        </label>
+        <label style="font-size: 0.8rem; color: #7f8c8d;">TENURE: 
+          <select class="filter-select" onchange="import('../core/state.js').then(m => m.store.update('dashboard.filters.tenure', this.value))">
+            ${tenures.map(t => `<option value="${t}" ${filters.tenure === t ? 'selected' : ''}>${t}</option>`).join('')}
           </select>
         </label>
       </div>
     `;
   }
 
-  /**
-   * 個別ウィジェット（グラフ）の描画[cite: 2]
-   */
   renderWidget(widget, responses, filters, isEditMode) {
-    // エンジンを使って集計データを取得[cite: 2, 3]
     const chartData = AnalysisEngine.aggregate(responses, widget, filters);
+    let chartHtml = '';
+
+    // ウィジェットタイプに応じて描画ロジックを分岐（プロフェッショナルな多角分析）
+    switch(widget.type) {
+      case 'pie': chartHtml = this.createPieChart(chartData); break;
+      case 'radar': chartHtml = this.createRadarChart(chartData); break;
+      case 'bar':
+      default: chartHtml = this.createSimpleBarChart(chartData);
+    }
 
     return `
       <div class="widget-card" data-id="${widget.id}" style="grid-column: span ${widget.layout.w}; grid-row: span ${widget.layout.h};">
         <div class="widget-header">
-          ${isEditMode ? this.renderWidgetEditor(widget) : `<h3 style="margin: 0; font-size: 1rem;">${widget.title}</h3>`}
-          ${isEditMode ? `<button class="delete-widget-btn" title="削除" style="background:none; border:none; color:#e74c3c; cursor:pointer; font-weight:bold;">×</button>` : ''}
+          ${isEditMode ? this.renderWidgetEditor(widget) : `<h3 style="margin:0; font-size: 0.9rem;">${widget.title}</h3>`}
+          ${isEditMode ? `<button class="delete-widget-btn">×</button>` : ''}
         </div>
-        <div class="widget-body">
-          ${this.createSimpleBarChart(chartData)}
+        <div class="widget-body" style="display: flex; align-items: center; justify-content: center; height: 100%;">
+          ${chartHtml}
         </div>
       </div>
     `;
   }
 
   /**
-   * ウィジェットの設定変更UI[cite: 2]
+   * 円グラフ (SVG)
    */
-  renderWidgetEditor(widget) {
+  createPieChart(data) {
+    if (!data.length) return 'No Data';
+    const total = data.reduce((sum, d) => sum + d.value, 0);
+    let cumulativePercent = 0;
+
+    const getCoordinatesForPercent = (percent) => {
+      const x = Math.cos(2 * Math.PI * percent);
+      const y = Math.sin(2 * Math.PI * percent);
+      return [x, y];
+    };
+
+    const colors = ['#3498db', '#2ecc71', '#f1c40f', '#e67e22', '#e74c3c'];
+    const paths = data.map((d, i) => {
+      const [startX, startY] = getCoordinatesForPercent(cumulativePercent);
+      cumulativePercent += (d.value / total);
+      const [endX, endY] = getCoordinatesForPercent(cumulativePercent);
+      const largeArcFlag = (d.value / total) > 0.5 ? 1 : 0;
+      return `<path d="M 0 0 L ${startX} ${startY} A 1 1 0 ${largeArcFlag} 1 ${endX} ${endY} Z" fill="${colors[i % colors.length]}"></path>`;
+    }).join('');
+
     return `
-      <div class="widget-controls" style="display: flex; flex-direction: column; gap: 4px; width: 100%;">
-        <input type="text" class="widget-title-input" value="${widget.title}" style="font-size: 0.9rem; padding: 2px;"
-               onchange="import('../core/state.js').then(m => m.store.updateWidgetConfig('${widget.id}', {title: this.value}))">
-        <div class="axis-config" style="display: flex; gap: 10px; font-size: 0.75rem;">
-          <label>軸: 
-            <select class="config-select" data-field="x">
-              <option value="department" ${widget.x === 'department' ? 'selected' : ''}>部署</option>
-              <option value="tenure" ${widget.x === 'tenure' ? 'selected' : ''}>勤続年数</option>
-            </select>
-          </label>
-          <label>値: 
-            <select class="config-select" data-field="y">
-              <option value="q1" ${widget.y === 'q1' ? 'selected' : ''}>設問1</option>
-              <option value="q2" ${widget.y === 'q2' ? 'selected' : ''}>設問2</option>
-            </select>
-          </label>
-        </div>
+      <div style="text-align: center;">
+        <svg viewBox="-1 -1 2 2" style="width: 120px; transform: rotate(-90deg);">${paths}</svg>
+        <div style="font-size: 0.6rem; margin-top: 5px;">${data.map((d, i) => `<span style="color:${colors[i % colors.length]}">●</span> ${d.label}`).join(' ')}</div>
       </div>
     `;
   }
 
   /**
-   * CSSのみで構成する簡易棒グラフ
+   * レーダーチャート (SVG)
    */
+  createRadarChart(data) {
+    if (data.length < 3) return 'Need 3+ points';
+    const size = 150;
+    const center = size / 2;
+    const radius = size * 0.4;
+    const maxValue = Math.max(...data.map(d => d.value), 5);
+
+    const points = data.map((d, i) => {
+      const angle = (Math.PI * 2 * i) / data.length - Math.PI / 2;
+      const r = (d.value / maxValue) * radius;
+      return `${center + r * Math.cos(angle)},${center + r * Math.sin(angle)}`;
+    }).join(' ');
+
+    const grid = [0.5, 1].map(f => {
+      const p = data.map((_, i) => {
+        const angle = (Math.PI * 2 * i) / data.length - Math.PI / 2;
+        const r = radius * f;
+        return `${center + r * Math.cos(angle)},${center + r * Math.sin(angle)}`;
+      }).join(' ');
+      return `<polygon points="${p}" fill="none" stroke="#eee" />`;
+    }).join('');
+
+    return `
+      <svg width="${size}" height="${size}">
+        ${grid}
+        <polygon points="${points}" fill="rgba(52, 152, 219, 0.4)" stroke="#3498db" stroke-width="2" />
+      </svg>
+    `;
+  }
+
   createSimpleBarChart(data) {
-    if (data.length === 0) return `<p style="font-size: 0.8rem; color: #999;">集計対象データがありません</p>`;
-    
+    // 既存の棒グラフ (省略せず、洗練されたスタイルで維持)
     const maxValue = Math.max(...data.map(d => d.value), 1);
-
     return `
-      <div class="simple-bar-chart">
-        ${data.map(item => `
-          <div class="bar-row" style="margin-bottom: 8px;">
-            <div class="bar-label" title="${item.label}">${item.label}</div>
-            <div class="bar-track" style="flex: 1; background: #eee; height: 12px; border-radius: 6px; margin: 0 10px; overflow: hidden;">
-              <div class="bar-fill" style="width: ${(item.value / maxValue) * 100}%; background: #3498db; height: 100%; transition: width 0.3s;"></div>
-            </div>
-            <div class="bar-value" style="width: 30px; font-size: 0.8rem; text-align: right;">${item.value}</div>
+      <div style="width: 100%; font-size: 0.7rem;">
+        ${data.map(d => `
+          <div style="margin-bottom: 4px;">
+            <div style="display:flex; justify-content: space-between;"><span>${d.label}</span><b>${d.value}</b></div>
+            <div style="background:#eee; height:6px; border-radius:3px;"><div style="width:${(d.value/maxValue)*100}%; background:#3498db; height:100%; border-radius:3px;"></div></div>
           </div>
         `).join('')}
+      </div>`;
+  }
+
+  renderWidgetEditor(widget) {
+    // グラフの種類を選択できるように拡張
+    const types = ['bar', 'pie', 'radar'];
+    return `
+      <div class="widget-controls" style="width:100%">
+        <select class="config-select" data-field="type" style="width: 100%; margin-bottom: 5px;">
+          ${types.map(t => `<option value="${t}" ${widget.type === t ? 'selected' : ''}>${t.toUpperCase()} CHART</option>`).join('')}
+        </select>
+        <div style="display:flex; gap:5px;">
+          <select class="config-select" data-field="x" style="flex:1">${['department', 'tenure'].map(opt => `<option value="${opt}" ${widget.x === opt ? 'selected' : ''}>${opt}</option>`).join('')}</select>
+          <select class="config-select" data-field="y" style="flex:1">${['q1', 'q2'].map(opt => `<option value="${opt}" ${widget.y === opt ? 'selected' : ''}>${opt}</option>`).join('')}</select>
+        </div>
       </div>
     `;
   }
